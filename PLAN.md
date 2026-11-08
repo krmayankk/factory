@@ -115,7 +115,7 @@ jobs end within 6 hours and accept no inbound connections.
 | Phase | Delivers | Spend |
 |---|---|---|
 | **F0** | This plan, reviewed | $0 |
-| **F1** | Ideas as PRs (schema + validation), repo template, repo creation via a GitHub App, branch protection as code | $0 |
+| **F1** | Ideas as PRs (schema + five required sections; `make idea`, `make check-idea`), repo template, all-or-nothing repo creation via a GitHub App, branch protection as code; then a TLA+ model of repo creation checked on every PR | $0 |
 | **F2** | AWS guardrail baseline: OIDC provider, budget + budget action, role factory with a permissions boundary, reaper | ~$0 (IAM and OIDC are free; the first two action-enabled budgets are free) |
 | **F3** | First project onboarded: `gpu-inference` live runs via `live` workflows | per approved run |
 | **F4** | Evidence pipeline: Playwright screenshots/video on PRs, per-PR previews for web projects | $0 |
@@ -230,3 +230,23 @@ CI rejects an idea PR whose front matter fails the schema or whose repo name exi
 2. **Visibility: public by default** (decided 2026-11-07). Private only once the
    organization is on Team (~$4/user/month), so private never means unguarded.
 3. **AWS monthly cap: open** — decided in F2 (suggest $30 while credits last).
+4. **Languages: Python (stdlib only) for gates; Go for services** (decided 2026-11-07).
+   Gate scripts run on hosted runners with no build step and no dependencies to
+   compromise. Anything long-running — a `factory` CLI, the operator agent — is Go.
+   Bash only as glue between steps, never for logic.
+
+## Verification: formal where it must never break, empirical everywhere
+
+- **Empirical** (every PR): unit tests, workflow policy, actionlint, shellcheck, and
+  failure-injection tests that prove all-or-nothing creation with a fake `gh`. Each
+  check is shown failing on a deliberately broken variant before it is trusted.
+- **Formal** (the few invariants that must never break):
+  - *A project repository is never reachable without its guardrails* — a TLA+ model of
+    `create_project.sh` (every crash point, two merges at once), model-checked by TLC
+    on every PR (F1).
+  - *No project role can touch IAM, other regions or non-allowlisted instance types* —
+    proved with IAM Access Analyzer custom policy checks (automated reasoning) on the
+    permissions boundary (F2).
+- Each formal check names the code it covers and the commit it was last confirmed
+  against, and says what it does not cover. (Approach from pstack's formal-verification
+  skills by Lauren Tan.)

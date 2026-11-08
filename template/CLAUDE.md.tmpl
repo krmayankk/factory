@@ -1,0 +1,30 @@
+# CLAUDE.md — rules for agents working in this repository
+
+This project was created by factory. These rules are enforced by CI, branch protection
+and environment gates; this file explains them so agents work with them, not around them.
+
+## How changes land
+- Every change is a pull request to `main`. Direct pushes and force pushes are blocked.
+- The `checks` job must pass. Keep PRs small: one idea per PR.
+- Never add a long-lived credential, token or key to the repository. Secret scanning
+  push protection rejects the commit; do not work around it.
+
+## Verification — "it builds" is not evidence
+- Verify at runtime, matched to the change: a CLI change runs the real command; a UI
+  change walks the flow and captures a screenshot; a performance change compares
+  measurements before and after.
+- A bug fix starts by reproducing the bug, and ends by rerunning that reproduction.
+- Put the evidence (command output, screenshot, numbers) in the PR description.
+  (Discipline adapted from pstack by Lauren Tan.)
+
+## Money
+- Free first: everything must pass on GitHub-hosted runners (tests, kind clusters with
+  mocks) before anything paid is requested.
+- Anything that costs money runs only in a workflow that uses the `live` environment,
+  which waits for the human approver. Do not create cloud resources any other way.
+- Every cloud resource carries `Project={{NAME}}` and `Ephemeral=true` tags, and every
+  live run ends in teardown that proves nothing tagged remains.
+
+## Workflows
+- Pin every action to a full commit SHA, declare `permissions:` at the top, never use
+  `pull_request_target`. `.factory/check_workflows.py` enforces this in CI.

@@ -1,0 +1,7 @@
+version: 2
+updates:
+  # Pinned action SHAs are updated as reviewed PRs, never silently.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -22,7 +22,7 @@ of them gets the same guardrails. sentinel is the judgment gate inside it.
 ## The loop
 
 ```
- 1 CAPTURE   Claude Code cloud session on this repo, from the Claude app (text or voice).
+ 1 CAPTURE   Claude Code cloud session on this repo, from the Claude app (typed or dictated).
              Back-and-forth until the idea is sharp.                         $0
  2 PROPOSE   The session writes ideas/<name>.md (problem, plan, needs, cost estimate)
              and opens a PR. CI validates the file. sentinel reviews it.     $0
@@ -62,6 +62,11 @@ send messages and approve.
 | Build | new session on the project repo: "build per `ideas/<name>.md`, small PRs" | Claude app / desktop |
 | Spend money | approve the waiting `live` run (gate #2) | GitHub app |
 | Improve the factory itself | session on `factory`; describe the change; merge its PR | Claude app / desktop |
+
+**Voice:** use the phone or computer keyboard's own dictation (the mic key) in the
+session's prompt box — it works everywhere. Claude Code's built-in `/voice` dictation is
+terminal-only and does not work in cloud sessions; the Claude app's voice-chat mode
+cannot see repositories. Replies are text.
 
 Until F1 ships, creating the project repo after the merge is manual (github.com/new,
 then add it to Claude's repository access).

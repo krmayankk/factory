@@ -122,6 +122,14 @@ class ValidateIdea(unittest.TestCase):
         f.write_text("no front matter here\n")
         self.assertTrue(any("front-matter" in e for e in idea.validate(f, CFG)))
 
+    def test_readme_and_templates_are_not_ideas(self):
+        # Regression: CI once validated ideas/README.md and _template.md as ideas, and
+        # `changed` would have tried to create a repository named README on merge.
+        self.assertFalse(idea.is_idea(pathlib.Path("ideas/README.md")))
+        self.assertFalse(idea.is_idea(pathlib.Path("ideas/_template.md")))
+        self.assertFalse(idea.is_idea(pathlib.Path("docs/spot.md")))
+        self.assertTrue(idea.is_idea(pathlib.Path("ideas/spot-price-tracker.md")))
+
     def test_underscore_files_are_templates(self):
         errs = self.errors(GOOD, "_template.md")
         self.assertTrue(any("templates" in e for e in errs), errs)

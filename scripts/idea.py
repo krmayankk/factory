@@ -6,7 +6,7 @@ machine-read, and only after every field passes the checks below; nothing from t
 body ever reaches a shell. Stdlib only, so the gate has no dependencies to compromise.
 
 Usage:
-  idea.py validate FILE...                       exit 1 and list errors if any file fails
+  idea.py validate [FILE...]                     exit 1 if any fails; no FILE = every idea
   idea.py changed --base SHA --head SHA          print idea files ADDED between two commits
   idea.py check-available --base SHA --head SHA --owner ORG
                                                  fail if an added idea's repo already exists
@@ -34,6 +34,16 @@ ZERO_SHA = "0" * 40
 
 class IdeaError(Exception):
     pass
+
+
+def is_idea(path: pathlib.Path) -> bool:
+    """ideas/<name>.md — not the folder's README, not `_`-prefixed templates."""
+    return (path.parent.name == "ideas" and path.suffix == ".md"
+            and path.name != "README.md" and not path.name.startswith("_"))
+
+
+def all_ideas() -> list[pathlib.Path]:
+    return sorted(p for p in (ROOT / "ideas").glob("*.md") if is_idea(p))
 
 
 def load_config() -> dict:
@@ -167,7 +177,7 @@ def changed(base: str, head: str) -> list[pathlib.Path]:
         ["git", "diff", "--no-renames", "--diff-filter=A", "--name-only", base, head,
          "--", "ideas/*.md"],
         check=True, capture_output=True, text=True, cwd=ROOT).stdout
-    return [ROOT / p for p in out.split() if not pathlib.Path(p).name.startswith("_")]
+    return [ROOT / p for p in out.split() if is_idea(ROOT / p)]
 
 
 def repo_exists(owner: str, name: str) -> bool:
@@ -195,10 +205,11 @@ def main(argv: list[str]) -> int:
     try:
         if a.cmd == "validate":
             cfg = load_config()
-            errors = [e for x in a.files for e in validate(pathlib.Path(x).resolve(), cfg)]
+            files = [pathlib.Path(x).resolve() for x in a.files] or all_ideas()
+            errors = [e for x in files for e in validate(x, cfg)]
             for e in errors:
                 print(f"::error::{e}" if "GITHUB_ACTIONS" in os.environ else e)
-            print(f"{len(a.files)} idea file(s), {len(errors)} error(s)")
+            print(f"{len(files)} idea file(s), {len(errors)} error(s)")
             return 1 if errors else 0
         if a.cmd == "changed":
             for path in changed(a.base, a.head):

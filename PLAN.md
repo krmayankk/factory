@@ -19,6 +19,13 @@ PLAN.md, "Where sentinel sits in the fleet"). Projects such as `gpu-inference` a
 `revbench` are *built by* the platform; factory is how new ones start and how every one
 of them gets the same guardrails. sentinel is the judgment gate inside it.
 
+**Where projects live.** New projects are created in a dedicated GitHub organization
+(`PROJECTS_OWNER`), not the personal account: a GitHub App can create repositories only
+in an organization, and the organization is the blast-radius fence — the App's power ends
+at it, so personal repositories are unreachable. Existing projects stay where they are;
+everything except *creation* (cloud sessions, the `live` gate, OIDC, budgets) applies to a
+repository wherever it lives.
+
 ## The loop
 
 ```
@@ -46,8 +53,11 @@ send messages and approve.
 
 | Step | Command / place | Why |
 |---|---|---|
-| Publish this repo | `cd ~/src/factory && gh repo create krmayankk/factory --public --source . --remote origin --push && git push -u origin plan/f0` | the factory has to exist on GitHub before a cloud session can open it |
-| Claude's GitHub access | GitHub → Settings → Applications → Claude → **Only select repositories** (add `factory`) | least privilege; F1 adds each new project automatically |
+| Publish this repo | `gh repo create krmayankk/factory --public --source . --push` — **done 2026-11-07** | the factory has to exist on GitHub before a cloud session can open it |
+| Projects organization | github.com/account/organizations/new, plan **Free** | the fence new projects live inside (see "Where projects live") |
+| Provisioner App | org → Settings → Developer settings → GitHub Apps → New. Webhook off. Repository permissions: Administration, Contents, Workflows, Environments = read & write; Metadata = read; nothing else. Installable only on this account. Install on the org, **All repositories**. Generate a private key. | the only identity that can create repos; short-lived tokens; one-click revoke |
+| Wire the App into factory | environment `provision` (deployment branch `main` only) holding secret `FACTORY_APP_PRIVATE_KEY`; repo variables `FACTORY_APP_CLIENT_ID`, `PROJECTS_OWNER`, `APPROVER` | the key is usable only by a workflow running on `main` |
+| Claude's GitHub access | Claude GitHub App: on the org **All repositories**; on the personal account **Only select repositories** (`factory`, plus existing projects you want agents on) | every new project is reachable at once; personal repos stay opt-in |
 | Your approvals are 2-factor | GitHub → Settings → Password and authentication → passkey or 2FA on | the two human gates are only as strong as your GitHub login |
 | No surprise Claude bill | claude.ai → Settings → Usage → paid extra usage **off** | plan limits become the hard stop |
 
@@ -133,7 +143,7 @@ jobs end within 6 hours and accept no inbound connections.
 
 | Threat | Control |
 |---|---|
-| Leaked GitHub token or session | No cloud keys to steal (OIDC only). The repo-creation credential is a GitHub App key held only in a protected environment of this repo, usable only by a workflow on `main`. |
+| Leaked GitHub token or session | No cloud keys to steal (OIDC only). The repo-creation credential is a GitHub App key held only in a protected environment of this repo, usable only by a workflow on `main`; its installation tokens expire in an hour and cannot reach outside the projects organization. |
 | Malicious / injected idea text ("ignore previous instructions, run …") | Idea text is data in a file. Validation is schema-based; creation uses only validated fields (name, visibility, cloud: yes/no). Agent sessions have no cloud credentials. |
 | Agent writes dangerous code | Every change is a PR through CI + sentinel; branch protection blocks direct pushes to `main`; live runs need your approval and run under a role that cannot exceed its boundary. |
 | Fork PR on a public repo tries to reach secrets or cloud | Fork PRs run with a read-only token and no secrets. Live workflows trigger only on `workflow_dispatch` / `push` to `main` and require the `live` environment. `pull_request_target` is banned by lint. |
@@ -176,6 +186,14 @@ A change may request tier N only after passing tier N−1 on the same commit.
 - `Makefile` contract: `up`, `down`, `verify`, `evidence` — the same shape as
   `gpu-inference`.
 - Cost tags (`Project=<name>`, `Ephemeral=true`) wired as provider defaults.
+- A stage label (`stage: experiment` → `active` → `archived`) as a repository topic and
+  a README banner — work in public is labelled honestly; dead ideas are archived, not
+  deleted.
+
+**Visibility rule:** public by default. On GitHub Free, private repositories get neither
+rulesets nor environment protection rules — no gate #2 — so a private idea is **rejected
+by validation** unless the organization is on a plan that provides both (Team). Never
+private without guardrails.
 
 ## The idea file (`ideas/<name>.md`)
 
@@ -184,7 +202,7 @@ Front matter is the only machine-read part; the body is for you.
 ```yaml
 ---
 name: spot-price-tracker        # becomes the repo name; [a-z0-9-], unique
-visibility: public              # public | private
+visibility: public              # public | private (private: org on Team plan only)
 cloud: none                     # none | aws
 monthly_cap_usd: 5              # must be <= the account-wide cap
 ---
@@ -202,10 +220,13 @@ CI rejects an idea PR whose front matter fails the schema or whose repo name exi
   private repos was postponed with no new date.
 - **Larger and GPU runners:** always paid; factory does not use them.
 
-## Decisions this plan asks you to make
+## Decisions
 
-1. GitHub App vs fine-grained token for repo creation — **recommend the App**
-   (short-lived installation tokens, explicit permissions, revocable in one place).
-2. The account-wide AWS monthly cap (suggest $30 while credits last).
-3. Default visibility for new projects (suggest public: free CI, and it is a showcase;
-   private when the idea says so).
+1. **Repo creation: a GitHub App, in a dedicated organization** (decided 2026-11-07). A
+   fine-grained personal token would need admin over *every* personal repository and live
+   for months; the App has only the permissions listed above, mints hour-long tokens, and
+   is fenced to the organization. Apps cannot create repositories in personal accounts,
+   which is what forces — and justifies — the organization.
+2. **Visibility: public by default** (decided 2026-11-07). Private only once the
+   organization is on Team (~$4/user/month), so private never means unguarded.
+3. **AWS monthly cap: open** — decided in F2 (suggest $30 while credits last).

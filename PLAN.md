@@ -40,6 +40,43 @@ of them gets the same guardrails. sentinel is the judgment gate inside it.
 sessions; CI and provisioning on GitHub-hosted runners; spend in AWS. Your devices only
 send messages and approve.
 
+## How to use it
+
+**One-time setup** (from a laptop; each step is yours because it acts on your accounts)
+
+| Step | Command / place | Why |
+|---|---|---|
+| Publish this repo | `cd ~/src/factory && gh repo create krmayankk/factory --public --source . --remote origin --push && git push -u origin plan/f0` | the factory has to exist on GitHub before a cloud session can open it |
+| Claude's GitHub access | GitHub → Settings → Applications → Claude → **Only select repositories** (add `factory`) | least privilege; F1 adds each new project automatically |
+| Your approvals are 2-factor | GitHub → Settings → Password and authentication → passkey or 2FA on | the two human gates are only as strong as your GitHub login |
+| No surprise Claude bill | claude.ai → Settings → Usage → paid extra usage **off** | plan limits become the hard stop |
+
+**Every day** — from the Claude mobile app or Claude desktop, **Code tab, cloud session**
+(not a local one: cloud sessions keep working with every device closed):
+
+| You want to | Do this | Where |
+|---|---|---|
+| Capture an idea | new session on `factory`; talk it through; "write it up as `ideas/<name>.md` and open a PR" | Claude app / desktop |
+| Refine an idea | comment on its PR, or keep talking in the same session | GitHub app / Claude app |
+| Start the project | merge the idea PR (gate #1) | GitHub app |
+| Build | new session on the project repo: "build per `ideas/<name>.md`, small PRs" | Claude app / desktop |
+| Spend money | approve the waiting `live` run (gate #2) | GitHub app |
+| Improve the factory itself | session on `factory`; describe the change; merge its PR | Claude app / desktop |
+
+Until F1 ships, creating the project repo after the merge is manual (github.com/new,
+then add it to Claude's repository access).
+
+**Where a project's result lives** — the proposal picks the cheapest row that works:
+
+| The project needs | It runs on | Cost |
+|---|---|---|
+| A page or browser app (games, tools, dashboards) | GitHub Pages, or a Claude artifact (can also store data and call Claude) | free |
+| A small backend (API, light database) | a serverless free tier (Cloudflare, AWS Lambda) | free–cents |
+| A container, VM or GPU | AWS, behind gate #2 and the budget stop | per hour, auto-teardown |
+
+GitHub Actions *tests* everything (including throwaway kind clusters); it never hosts —
+jobs end within 6 hours and accept no inbound connections.
+
 ## Invariants (enforced, not intended)
 
 1. **No long-lived cloud credentials exist outside your own machine.** CI reaches AWS

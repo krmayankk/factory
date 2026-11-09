@@ -85,8 +85,20 @@ gh api -X PUT "repos/${repo}/environments/live" --silent --input - <<JSON
 JSON
 gh api -X POST "repos/${repo}/environments/live/deployment-branch-policies" \
   -f name=main -f type=branch --silent
-# Branch protection last, so the seed push above was allowed.
+# Branch protection last, so the seed push above was allowed. Two rulesets: `main`
+# binds everyone (PR, green CI, no force-push or deletion); `only admin merges` lets
+# only a repository admin update main, and only by merging a PR — agents propose,
+# they never merge.
 gh api -X POST "repos/${repo}/rulesets" --input "$root/config/ruleset.json" --silent
+gh api -X POST "repos/${repo}/rulesets" --input "$root/config/ruleset-only-admin-merges.json" --silent
+echo "::endgroup::"
+
+# Pages is a convenience, not a guardrail: failing to enable it warns and continues
+# (the repo is fully guarded at this point). Deploys come from template pages.yml.
+echo "::group::pages"
+if ! gh api -X POST "repos/${repo}/pages" -f build_type=workflow --silent; then
+  echo "::warning::could not enable Pages for ${repo} (does the App have Pages: write?)"
+fi
 echo "::endgroup::"
 
 echo "https://github.com/${repo}"

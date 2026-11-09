@@ -55,7 +55,7 @@ send messages and approve.
 |---|---|---|
 | Publish this repo | `gh repo create krmayankk/factory --public --source . --push` — **done 2026-11-07** | the factory has to exist on GitHub before a cloud session can open it |
 | Projects organization | github.com/account/organizations/new, plan **Free** | the fence new projects live inside (see "Where projects live") |
-| Provisioner App | org → Settings → Developer settings → GitHub Apps → New. Webhook off. Repository permissions: Administration, Contents, Workflows, Environments = read & write; Metadata = read; nothing else. Installable only on this account. Install on the org, **All repositories**. Generate a private key. | the only identity that can create repos; short-lived tokens; one-click revoke |
+| Provisioner App | org → Settings → Developer settings → GitHub Apps → New. Webhook off. Repository permissions: Administration, Contents, Workflows, Environments, Pages = read & write; Metadata = read; nothing else. Installable only on this account. Install on the org, **All repositories**. Generate a private key. | the only identity that can create repos; short-lived tokens; one-click revoke |
 | Wire the App into factory | environment `provision` (deployment branch `main` only) holding secret `FACTORY_APP_PRIVATE_KEY`; repo variables `FACTORY_APP_CLIENT_ID`, `PROJECTS_OWNER`, `APPROVER` | the key is usable only by a workflow running on `main` |
 | Claude's GitHub access | Claude GitHub App: on the org **All repositories**; on the personal account **Only select repositories** (`factory`, plus existing projects you want agents on) | every new project is reachable at once; personal repos stay opt-in |
 | Your approvals are 2-factor | GitHub → Settings → Password and authentication → passkey or 2FA on | the two human gates are only as strong as your GitHub login |
@@ -179,7 +179,11 @@ A change may request tier N only after passing tier N−1 on the same commit.
 - CI: lint, unit tests, a kind-cluster job with mocks (tier 0), Actions pinned by SHA,
   least-privilege `permissions`.
 - sentinel review workflow and a `CLAUDE.md` with the project's invariants.
-- Branch protection on `main` as code: PR required, checks required, no force pushes.
+- Branch protection on `main` as code, as two rulesets: `main` binds everyone (PR
+  required, `checks` green, no force-push or deletion); `only admin merges` lets only a
+  repository admin update `main`, and only by merging a PR — agents propose, never merge.
+- `pages.yml`: publishes `site/` to GitHub Pages on every change to `main`, for projects
+  that have a `site/index.html`; Pages is switched on at creation.
 - `live` environment: required reviewer (you), deployment branch `main` only.
 - An AWS role `factory-<name>` with the boundary, created by the factory (F2) — only if
   the idea declares `cloud: aws`.

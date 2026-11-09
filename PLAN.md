@@ -295,6 +295,18 @@ only after passing the rung below on the same commit:
 | 2 | Cheapest paid capacity that fits (spot, ARM, small providers) | cents–dollars | it runs under real load |
 | 3 | AWS / GKE when the project needs them | per approval | production at scale |
 
+**Promotion is a reviewed decision; every spend is a separate approval.** A project
+declares its rung (and, for paid rungs, provider and monthly cap) in a file in its repo.
+Moving up is a PR that changes it — merged only by the owner. Each paid run then still
+waits in the `live` environment for the owner's approval. Two different gates: *may this
+project use AWS at all* (merge), and *may this run spend now* (approval).
+
+**Where MFA fits.** An automated run cannot present an AWS MFA code — GitHub's OIDC
+login carries no MFA, and adding one would require stored long-lived keys. The equivalent
+protection: the organization **requires two-factor authentication** for every member, so
+every merge and every approval comes from a 2FA-protected account. The owner's
+MFA-protected AWS user remains the break-glass path for direct work in AWS.
+
 **Hosting discovery.** A catalog in this repo lists hosting and service providers —
 what is free, its limits, whether a card is required, how credentials work (OIDC
 preferred), and how to cap or stop spend — each entry with the date it was last checked.

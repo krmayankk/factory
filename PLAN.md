@@ -239,6 +239,46 @@ CI rejects an idea PR whose front matter fails the schema or whose repo name exi
    compromise. Anything long-running — a `factory` CLI, the operator agent — is Go.
    Bash only as glue between steps, never for logic.
 
+## Next: fully automatic, safe by construction
+
+First end-to-end run (2026-11-09): an idea typed in the Claude app became factory PR
+#5, was merged on a phone, and `ideafactory-labs/sky-hoppers` was created with every
+guardrail. Building still needs a manual session. The target loop is: **say the idea →
+merge → play the preview → merge.**
+
+| Step | What happens automatically | Phase |
+|---|---|---|
+| Build starts on merge | Repo creation opens a "build the smallest useful version" issue; the Claude GitHub Action builds and opens a PR | F1.2 |
+| Agent fixes its own red CI | A failed check on an agent PR re-invokes the agent, a bounded number of times | F1.3 |
+| Preview + evidence on every PR | Playwright screenshot/short video and a playable preview link posted on the PR | F1.4 |
+| One status page | Every idea: stage, latest PR, preview, spend | F1.5 |
+| Guardrail reconciler | Hourly: every repo in the org has its guardrails, or is archived and reported — whoever created it | F1.6 |
+
+### Safety rules for automation
+
+Threat model: nobody outside can drive the factory App (its key is usable only by
+workflows on `main`, which only the owner can change). The realistic risks are a bug, a
+confused agent, or injected text steering an agent. Each rule below holds against those.
+
+| # | Rule | Enforced by | Verified by |
+|---|---|---|---|
+| S1 | No dollar is spent without the owner's approval | cloud credentials exist only via OIDC into the `live` environment (owner is required reviewer); no keys anywhere | TLA+ over every actor → credential path; IAM Access Analyzer on the boundary (F2) |
+| S2 | Only the owner merges to `main` | `main` + `only admin merges` rulesets; the build agent authenticates as its own App, not as the owner | empirical: an agent attempts to merge its own PR and must be refused — run on every template change |
+| S3 | No secret is reachable by unmerged code | agent credentials live in an `agent` environment restricted to `main` — never org- or repo-wide secrets; policy lint rejects workflows reading secrets outside an environment | lint + reconciler audit |
+| S4 | No project is ever unguarded | all-or-nothing creation; reconciler archives any unguarded repo, including ones created outside the factory | failure-injection tests; TLA+ of creation + reconciler |
+| S5 | Nothing is deleted | factory code archives, never deletes (lint bans delete calls); org setting: members cannot delete repositories; 90-day owner restore as the net | lint; reconciler reports any repo count drop |
+| S6 | Agent effort is bounded | per-run turn and time limits, one agent run per repo at a time, plan usage limits with paid overage off | workflow lint on limits |
+| S7 | Only the owner and the factory bot can start an agent | trigger filters on actor; forks and strangers' comments ignored | empirical: a comment from another account must not start a run |
+
+**Least privilege, staged.** GitHub's "Administration: write" also allows deleting
+repositories; there is no write-without-delete. Today S5 covers that in code and org
+settings. Once building is automatic, the factory App splits in two: a **creator**
+(administration, used only during repository creation) and a **builder** (contents and
+pull requests only, for everything after) — each job holding only what it needs.
+
+**Formal verification gates F2.** No AWS automation ships until S1, S4 and the F2
+boundary rules are model-checked or proved.
+
 ## Verification: formal where it must never break, empirical everywhere
 
 - **Empirical** (every PR): unit tests, workflow policy, actionlint, shellcheck, and

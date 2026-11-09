@@ -279,6 +279,40 @@ pull requests only, for everything after) — each job holding only what it need
 **Formal verification gates F2.** No AWS automation ships until S1, S4 and the F2
 boundary rules are model-checked or proved.
 
+## Beyond pages: real apps to production on a minimum budget
+
+Pages proves the loop; the goal is **real applications** — backends, databases, auth,
+payments — taken from idea to production at the lowest possible cost, with guardrails
+at every step.
+
+**The production ladder.** Each rung is free or cheapest-first, and a project climbs
+only after passing the rung below on the same commit:
+
+| Rung | Where | Cost | Proves |
+|---|---|---|---|
+| 0 | kind on GitHub-hosted runners: the real app, its real manifests, a real database in a container | $0 | it works end to end |
+| 1 | Discovered free tiers (static, serverless, containers, managed databases) | $0 | it runs somewhere real |
+| 2 | Cheapest paid capacity that fits (spot, ARM, small providers) | cents–dollars | it runs under real load |
+| 3 | AWS / GKE when the project needs them | per approval | production at scale |
+
+**Hosting discovery.** A catalog in this repo lists hosting and service providers —
+what is free, its limits, whether a card is required, how credentials work (OIDC
+preferred), and how to cap or stop spend — each entry with the date it was last checked.
+An idea's proposal picks its rung and provider from the catalog; agents keep the catalog
+current as PRs. A provider without a hard spend cap, or that needs long-lived keys, is
+marked as such and needs explicit approval.
+
+**Manual steps are part of the safety.** Some setup will always be human — creating a
+provider account, linking a card, verifying a domain, turning on live payments. These
+are deliberate gates, recorded per provider, done once. Payments stay in test mode until
+a **launch gate**: domain, privacy policy, monitoring, budget alarms, and live payments,
+each approved by the owner.
+
+**Fail with learnings.** GitHub Actions plus GitHub Apps is the current bet, not a
+commitment. If it hits a wall — runner limits, permission gaps, a security property it
+cannot hold — record what broke and why in `docs/learnings.md`, and change the
+implementation. The invariants above outlive any one implementation of them.
+
 ## Verification: formal where it must never break, empirical everywhere
 
 - **Empirical** (every PR): unit tests, workflow policy, actionlint, shellcheck, and

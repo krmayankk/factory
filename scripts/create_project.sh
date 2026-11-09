@@ -15,6 +15,8 @@ name="$(python3 "$root/scripts/idea.py" field "$idea" name)"
 visibility="$(python3 "$root/scripts/idea.py" field "$idea" visibility)"
 idea_url="https://github.com/${FACTORY_REPO}/blob/main/ideas/${name}.md"
 repo="${OWNER}/${name}"
+# GitHub Pages addresses are lowercase.
+pages_url="https://$(printf %s "$OWNER" | tr '[:upper:]' '[:lower:]').github.io/${name}/"
 
 # Invariant: a project repository never stays reachable without its guardrails.
 # Creation is all-or-nothing — if any step after the repo exists fails, the repo is
@@ -52,7 +54,7 @@ cp "$root/scripts/check_workflows.py" "$work/.factory/check_workflows.py"
 # Render *.tmpl. Substituted values are validated names and fixed URLs only.
 while IFS= read -r -d '' t; do
   sed -e "s|{{NAME}}|${name}|g" -e "s|{{OWNER}}|${OWNER}|g" \
-      -e "s|{{IDEA_URL}}|${idea_url}|g" -e "s|{{FACTORY_REPO}}|${FACTORY_REPO}|g" \
+      -e "s|{{IDEA_URL}}|${idea_url}|g" -e "s|{{FACTORY_REPO}}|${FACTORY_REPO}|g" -e "s|{{PAGES_URL}}|${pages_url}|g" \
       "$t" > "${t%.tmpl}"
   rm "$t"
 done < <(find "$work" -name '*.tmpl' -print0)
@@ -98,6 +100,10 @@ echo "::endgroup::"
 echo "::group::pages"
 if ! gh api -X POST "repos/${repo}/pages" -f build_type=workflow --silent; then
   echo "::warning::could not enable Pages for ${repo} (does the App have Pages: write?)"
+fi
+# The play link in the repo's About box, so it is one tap from the repo page.
+if ! gh api -X PATCH "repos/${repo}" -f homepage="${pages_url}" --silent; then
+  echo "::warning::could not set the homepage link for ${repo}"
 fi
 echo "::endgroup::"
 

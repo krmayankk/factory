@@ -113,6 +113,8 @@ class CreateProjectAllOrNothing(unittest.TestCase):
         self.assertTrue(any("secret_scanning" in c or "PATCH repos/labs/spot-price-tracker --silent" in c
                             for c in calls))
         self.assertTrue(any("repos/labs/spot-price-tracker/pages" in c for c in calls))
+        self.assertTrue(any("homepage=https://labs.github.io/spot-price-tracker/" in c
+                            for c in calls), calls)
         self.assertFalse(any("archived=true" in c for c in calls), calls)
 
     def test_pages_failure_warns_but_keeps_the_guarded_repo(self):

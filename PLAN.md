@@ -314,6 +314,16 @@ An idea's proposal picks its rung and provider from the catalog; agents keep the
 current as PRs. A provider without a hard spend cap, or that needs long-lived keys, is
 marked as such and needs explicit approval.
 
+Three steps, with the human in the middle:
+
+| Step | Who | Output |
+|---|---|---|
+| Discover | an agent — on a monthly schedule, when an idea fits no onboarded provider, or on request | a catalog PR: limits, card required, credential type, spend cap, setup checklist, date checked. Read-only research; no accounts created |
+| Onboard | the owner, once per provider | account created, spend cap set, keyless login connected, following the entry's checklist — then a factory deploy workflow for that provider |
+| Choose | the factory | each idea's proposal picks only from onboarded providers, or states that it needs one |
+
+No account, card or credential ever appears without the owner creating it.
+
 **Manual steps are part of the safety.** Some setup will always be human — creating a
 provider account, linking a card, verifying a domain, turning on live payments. These
 are deliberate gates, recorded per provider, done once. Payments stay in test mode until

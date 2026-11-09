@@ -7,4 +7,6 @@ PR; merging it creates a new repository from a template that ships with its gate
 its least-privilege cloud role and its spending limits already in place. Agents build;
 CI proves; a human approves anything that spends money.
 
-**Status:** design. Start with [`PLAN.md`](PLAN.md).
+Designed and built by **Mayank Kumar** ([@krmayankk](https://github.com/krmayankk)).
+
+**Status:** first projects shipping. Start with [`PLAN.md`](PLAN.md).

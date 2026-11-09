@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Workflow policy (pinned actions, no pull_request_target, explicit permissions)
+        run: python3 scripts/check_workflows.py .github/workflows template/.github/workflows
+
+      - name: actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color .github/workflows/*.yml template/.github/workflows/*.yml
+
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
+
+      - name: Validate every idea
+        run: python3 scripts/idea.py validate
+
+      - name: Added ideas must not collide with existing repositories
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ vars.PROJECTS_OWNER }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/idea.py check-available --base "$BASE" --head "$HEAD" --owner "$OWNER"

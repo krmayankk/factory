@@ -1,0 +1,13 @@
+{
+  "account_monthly_cap_usd": 30,
+  "private_allowed": false,
+  "reserved_names": [
+    "factory",
+    "sentinel",
+    "gpu-inference",
+    "revbench",
+    "inference-arcade",
+    "github",
+    "template"
+  ]
+}

@@ -1,0 +1,81 @@
+name: create-project
+
+# Gate #1 has passed: an idea PR was merged to main. Create its repository.
+on:
+  push:
+    branches: [main]
+    paths: ["ideas/*.md"]
+
+permissions:
+  contents: read
+  pull-requests: write # report back on the merged idea PR
+
+concurrency:
+  group: create-project
+  cancel-in-progress: false
+
+jobs:
+  create:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The App's private key exists only in this environment, deployable from main only.
+    environment: provision
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find and validate added ideas
+        id: ideas
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          python3 scripts/idea.py changed --base "$BEFORE" --head "$AFTER" > new-ideas.txt
+          cat new-ideas.txt
+          if [ -s new-ideas.txt ]; then
+            xargs python3 scripts/idea.py validate < new-ideas.txt
+          fi
+          echo "count=$(grep -c . new-ideas.txt || true)" >> "$GITHUB_OUTPUT"
+
+      - name: Mint a one-hour token fenced to the projects organization
+        id: token
+        if: steps.ideas.outputs.count != '0'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
+          owner: ${{ vars.PROJECTS_OWNER }}
+
+      - name: Create projects
+        id: create
+        if: steps.ideas.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP_SLUG: ${{ steps.token.outputs.app-slug }}
+          OWNER: ${{ vars.PROJECTS_OWNER }}
+          APPROVER: ${{ vars.APPROVER }}
+          FACTORY_REPO: ${{ github.repository }}
+        run: |
+          : > created.txt
+          while IFS= read -r idea; do
+            scripts/create_project.sh "$idea" | tail -n1 >> created.txt
+          done < new-ideas.txt
+          cat created.txt
+
+      - name: Report on the idea PR
+        if: always() && steps.ideas.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.create.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0].number // empty')"
+          [ -n "$pr" ] || { echo "no PR for ${GITHUB_SHA}; nothing to report"; exit 0; }
+          if [ "$OUTCOME" = success ]; then
+            body="Created: $(paste -sd' ' created.txt) — guardrails applied (protected main, \`live\` approval gate, secret push protection). [Run](${RUN_URL})"
+          else
+            body="Project creation **failed** — nothing was half-adopted; see the [run](${RUN_URL})."
+          fi
+          gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "$body"

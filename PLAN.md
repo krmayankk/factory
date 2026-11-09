@@ -239,6 +239,102 @@ CI rejects an idea PR whose front matter fails the schema or whose repo name exi
    compromise. Anything long-running — a `factory` CLI, the operator agent — is Go.
    Bash only as glue between steps, never for logic.
 
+## Next: fully automatic, safe by construction
+
+First end-to-end run (2026-11-09): an idea typed in the Claude app became factory PR
+#5, was merged on a phone, and `ideafactory-labs/sky-hoppers` was created with every
+guardrail. Building still needs a manual session. The target loop is: **say the idea →
+merge → play the preview → merge.**
+
+| Step | What happens automatically | Phase |
+|---|---|---|
+| Build starts on merge | Repo creation opens a "build the smallest useful version" issue; the Claude GitHub Action builds and opens a PR | F1.2 |
+| Agent fixes its own red CI | A failed check on an agent PR re-invokes the agent, a bounded number of times | F1.3 |
+| Preview + evidence on every PR | Playwright screenshot/short video and a playable preview link posted on the PR | F1.4 |
+| One status page | Every idea: stage, latest PR, preview, spend | F1.5 |
+| Guardrail reconciler | Hourly: every repo in the org has its guardrails, or is archived and reported — whoever created it | F1.6 |
+
+### Safety rules for automation
+
+Threat model: nobody outside can drive the factory App (its key is usable only by
+workflows on `main`, which only the owner can change). The realistic risks are a bug, a
+confused agent, or injected text steering an agent. Each rule below holds against those.
+
+| # | Rule | Enforced by | Verified by |
+|---|---|---|---|
+| S1 | No dollar is spent without the owner's approval | cloud credentials exist only via OIDC into the `live` environment (owner is required reviewer); no keys anywhere | TLA+ over every actor → credential path; IAM Access Analyzer on the boundary (F2) |
+| S2 | Only the owner merges to `main` | `main` + `only admin merges` rulesets; the build agent authenticates as its own App, not as the owner | empirical: an agent attempts to merge its own PR and must be refused — run on every template change |
+| S3 | No secret is reachable by unmerged code | agent credentials live in an `agent` environment restricted to `main` — never org- or repo-wide secrets; policy lint rejects workflows reading secrets outside an environment | lint + reconciler audit |
+| S4 | No project is ever unguarded | all-or-nothing creation; reconciler archives any unguarded repo, including ones created outside the factory | failure-injection tests; TLA+ of creation + reconciler |
+| S5 | Nothing is deleted | factory code archives, never deletes (lint bans delete calls); org setting: members cannot delete repositories; 90-day owner restore as the net | lint; reconciler reports any repo count drop |
+| S6 | Agent effort is bounded | per-run turn and time limits, one agent run per repo at a time, plan usage limits with paid overage off | workflow lint on limits |
+| S7 | Only the owner and the factory bot can start an agent | trigger filters on actor; forks and strangers' comments ignored | empirical: a comment from another account must not start a run |
+
+**Least privilege, staged.** GitHub's "Administration: write" also allows deleting
+repositories; there is no write-without-delete. Today S5 covers that in code and org
+settings. Once building is automatic, the factory App splits in two: a **creator**
+(administration, used only during repository creation) and a **builder** (contents and
+pull requests only, for everything after) — each job holding only what it needs.
+
+**Formal verification gates F2.** No AWS automation ships until S1, S4 and the F2
+boundary rules are model-checked or proved.
+
+## Beyond pages: real apps to production on a minimum budget
+
+Pages proves the loop; the goal is **real applications** — backends, databases, auth,
+payments — taken from idea to production at the lowest possible cost, with guardrails
+at every step.
+
+**The production ladder.** Each rung is free or cheapest-first, and a project climbs
+only after passing the rung below on the same commit:
+
+| Rung | Where | Cost | Proves |
+|---|---|---|---|
+| 0 | kind on GitHub-hosted runners: the real app, its real manifests, a real database in a container | $0 | it works end to end |
+| 1 | Discovered free tiers (static, serverless, containers, managed databases) | $0 | it runs somewhere real |
+| 2 | Cheapest paid capacity that fits (spot, ARM, small providers) | cents–dollars | it runs under real load |
+| 3 | AWS / GKE when the project needs them | per approval | production at scale |
+
+**Promotion is a reviewed decision; every spend is a separate approval.** A project
+declares its rung (and, for paid rungs, provider and monthly cap) in a file in its repo.
+Moving up is a PR that changes it — merged only by the owner. Each paid run then still
+waits in the `live` environment for the owner's approval. Two different gates: *may this
+project use AWS at all* (merge), and *may this run spend now* (approval).
+
+**Where MFA fits.** An automated run cannot present an AWS MFA code — GitHub's OIDC
+login carries no MFA, and adding one would require stored long-lived keys. The equivalent
+protection: the organization **requires two-factor authentication** for every member, so
+every merge and every approval comes from a 2FA-protected account. The owner's
+MFA-protected AWS user remains the break-glass path for direct work in AWS.
+
+**Hosting discovery.** A catalog in this repo lists hosting and service providers —
+what is free, its limits, whether a card is required, how credentials work (OIDC
+preferred), and how to cap or stop spend — each entry with the date it was last checked.
+An idea's proposal picks its rung and provider from the catalog; agents keep the catalog
+current as PRs. A provider without a hard spend cap, or that needs long-lived keys, is
+marked as such and needs explicit approval.
+
+Three steps, with the human in the middle:
+
+| Step | Who | Output |
+|---|---|---|
+| Discover | an agent — on a monthly schedule, when an idea fits no onboarded provider, or on request | a catalog PR: limits, card required, credential type, spend cap, setup checklist, date checked. Read-only research; no accounts created |
+| Onboard | the owner, once per provider | account created, spend cap set, keyless login connected, following the entry's checklist — then a factory deploy workflow for that provider |
+| Choose | the factory | each idea's proposal picks only from onboarded providers, or states that it needs one |
+
+No account, card or credential ever appears without the owner creating it.
+
+**Manual steps are part of the safety.** Some setup will always be human — creating a
+provider account, linking a card, verifying a domain, turning on live payments. These
+are deliberate gates, recorded per provider, done once. Payments stay in test mode until
+a **launch gate**: domain, privacy policy, monitoring, budget alarms, and live payments,
+each approved by the owner.
+
+**Fail with learnings.** GitHub Actions plus GitHub Apps is the current bet, not a
+commitment. If it hits a wall — runner limits, permission gaps, a security property it
+cannot hold — record what broke and why in `docs/learnings.md`, and change the
+implementation. The invariants above outlive any one implementation of them.
+
 ## Verification: formal where it must never break, empirical everywhere
 
 - **Empirical** (every PR): unit tests, workflow policy, actionlint, shellcheck, and

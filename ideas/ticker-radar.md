@@ -204,3 +204,68 @@ Worst-case monthly spend: $0.
 - If, a month after v1, I'm not opening the page or acting on alerts, archive it.
 - If alerts are noisy (more than about 3 a week that I ignore) after one tuning PR,
   stop adding sources and features and rethink the thresholds or archive.
+
+## Prototype findings
+A clickable prototype with **sample data only** was built before merge:
+https://claude.ai/artifact/JYHJGVkafcCGiJmBfSa6oQ. The link is private to the repo
+owner; a Claude session of the owner can read its source with the Artifact tool. Treat
+it as the starting point for the page, not as data: every number in it is generated.
+
+**What the prototype settled (carry over):**
+- **Page order:** "Since your last visit", Watchlist, T-bills and rates, IPO radar,
+  Economic indicators, Next 30 days. Each section names its real source in its
+  header, and each value shows an as-of date.
+- **Search:**
+  - Ranking: exact ticker, then ticker prefix, then company-name prefix, then name
+    contains, with at most 8 results.
+  - Keyboard: arrows move, Enter adds, Esc closes.
+  - A ticker already on the list says "On your list".
+  - Searching "bank" finds BAC and KRE, which shows that matching by name is needed,
+    not just by ticker.
+- **Card:** ticker, name, last close, day change in % (colored), 30-day sparkline with an
+  area fill and endpoint, 52-week range bar, and an alert level picked from
+  ±2/3/5/8/10% (default ±5%). The card is outlined when today's move crossed its level.
+  ✕ removes it.
+- **"No price data" state:** a ticker outside the priced universe still gets a card,
+  with a "No price data yet" line instead of numbers.
+- **Storage:**
+  - One versioned key (`ticker-radar.v1`) holds the watchlist, watched IPOs, chosen
+    indicators and the last-visit time.
+  - Every read and write is wrapped in try/catch, so the page still works with
+    storage blocked.
+  - The first visit uses a sensible starter list.
+- **"Since your last visit":** built on the device from the stored last-visit time. It
+  lists alert crossings for watched tickers, IPO steps reached since the last visit, and
+  lock-ups ending within 7 days. It needs no server.
+- **IPO timeline:** six steps (Filed S-1, Price range set, Priced, First trade, Quiet
+  period ends, Lock-up ends).
+  - Reached steps are filled, the next step is ringed, and estimated dates are
+    italic with "est.".
+  - ☆ Watch pins the IPO to the top.
+- **Rates:** a table of maturity, yield, 1-week change and 1-month change in basis points,
+  plus a yield-curve chart (today solid, a month ago dashed) and a bill-auction table
+  (upcoming and recent results with the high rate).
+- **Indicators:** cards (label, value, previous value and period) chosen from a checkbox
+  catalog under "Choose indicators".
+- **Calendar:** date, event, and a kind tag (Fed, Data, Auction, IPO), with the next 30
+  days sorted by date.
+- **Layout:** works at 400 px wide, and wide tables scroll inside their own container.
+  Light and dark themes come from color tokens.
+
+**Not covered by the prototype (still to design and test in the build):**
+- the export/import code for moving the watchlist to another device;
+- the `.ics` calendar feed;
+- searching IPOs by company name;
+- reordering cards by drag;
+- the stale-data and "source down" states;
+- the real per-ticker data files and search index;
+- sizing the universe against the Pages limit.
+
+**Test to port:** the prototype was checked by loading it at phone width (400 px) and
+confirming:
+- the page loads with no script errors;
+- searching "bank" lists BAC, and Enter adds a BAC card;
+- the alert strip shows the two tickers whose fixture moves crossed ±5%.
+
+The real version's Playwright suite should run the same flow against recorded
+fixtures.
